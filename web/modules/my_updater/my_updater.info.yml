@@ -1,0 +1,5 @@
+name: 'my_updater'
+type: module
+description: 'An updater for group'
+package: Custom
+core_version_requirement: ^10 || ^11

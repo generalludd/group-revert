@@ -1,0 +1,133 @@
+{
+    "name": "drupal/recommended-project",
+    "description": "Project template for Drupal projects with a relocated document root",
+    "type": "project",
+    "license": "GPL-2.0-or-later",
+    "homepage": "https://www.drupal.org/project/drupal",
+    "support": {
+        "docs": "https://www.drupal.org/docs/user_guide/en/index.html",
+        "chat": "https://www.drupal.org/node/314178"
+    },
+    "repositories": {
+        "drupal-packagist": {
+            "type": "composer",
+            "url": "https://packages.drupal.org/8"
+        },
+        "asset-packagist": {
+            "type": "composer",
+            "url": "https://asset-packagist.org"
+        }
+    },
+    "require": {
+        "composer/installers": "^2.0",
+        "cweagans/composer-patches": "^1.7",
+        "drupal/core-composer-scaffold": "^10.2",
+        "drupal/core-project-message": "^10.2",
+        "drupal/core-recommended": "^10.2",
+        "drupal/group": "1.5",
+        "drush/drush": "^12.5",
+        "ext-pdo": "*"
+    },
+    "conflict": {
+        "drupal/drupal": "*"
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "extra": {
+        "drainpipe": {
+            "github": ["Pantheon", "ComposerLockDiff", "PantheonReviewApps"],
+            "tugboat": {
+                "terminus": true
+            }
+        },
+        "drupal-scaffold": {
+            "locations": {
+                "web-root": "./web"
+            },
+            "file-mapping": {
+                "[project-root]/.editorconfig": false,
+                "[project-root]/.gitattributes": false,
+                "[web-root]/robots.txt": {
+                    "mode": "skip"
+                }
+            },
+            "gitignore": "true"
+        },
+        "installer-types": [
+            "bower-asset",
+            "npm-asset"
+        ],
+        "installer-paths": {
+            "web/core": ["type:drupal-core"],
+            "web/libraries/{$name}": [
+                "type:drupal-library",
+                "type:bower-asset",
+                "type:npm-asset"
+            ],
+            "web/modules/contrib/{$name}": ["type:drupal-module"],
+            "web/profiles/contrib/{$name}": ["type:drupal-profile"],
+            "web/themes/contrib/{$name}": ["type:drupal-theme"],
+            "drush/Commands/contrib/{$name}": ["type:drupal-drush"],
+            "web/modules/custom/{$name}": ["type:drupal-custom-module"],
+            "web/profiles/custom/{$name}": ["type:drupal-custom-profile"],
+            "web/themes/custom/{$name}": ["type:drupal-custom-theme"],
+            "web/private/scripts/quicksilver/{$name}/": ["type:quicksilver-script"]
+        },
+        "composer-exit-on-patch-failure": true,
+        "patchLevel": {
+            "drupal/core": "-p2"
+        },
+        "patches": {
+            "drupal/core": {
+                "Issue #2827921: Exception thrown by responsive srcset images when the image is not yet in the file system": "https://www.drupal.org/files/issues/2827921-remove-missing-responsive-image-width-exception.patch",
+                "Issue #2920285: Update module can get 'stuck' with 'no releases available'": "https://www.drupal.org/files/issues/2024-01-26/2920285-51.patch",
+                "Issue #3377420: Responsive image width/height values are not used from fallback image style":  "https://www.drupal.org/files/issues/2023-08-04/3377420-responsive-image-dimension-fallback-style-9.patch"
+            },
+            "drupal/group": {
+                "Entities identified by strings as group content": "https://www.drupal.org/files/issues/2021-08-24/2797793-279.patch",
+                "Group content Path automated pattern and tokens for actual node": "https://www.drupal.org/files/issues/2021-05-19/group-content-entity-tokens-2916907-17.patch",
+                "Issue #3371641 GroupListBuilder accessCheck": "https://www.drupal.org/files/issues/2023-06-30/337641-accessCheck.patch",
+                "Issue 3371651 Entity dispatch variable switch": "https://www.drupal.org/files/issues/2023-06-30/3371651-fix-dispatch-variables.patch",
+                "Issue #3210808 updated uasort": "https://www.drupal.org/files/issues/2021-04-26/uasort-comparison-3210808-2.patch"
+            },
+            "drupal/pathauto": {
+                "Issue #3276874 (pathauto Settings page is WSOD because safe_tokens field is empty/unset)": "https://git.drupalcode.org/project/pathauto/-/merge_requests/19.diff"
+            }
+        },
+        "merge-plugin": {
+            "include": [
+                "modules/custom/*/composer.json"
+            ],
+            "recurse": true
+        },
+        "symlinks": {
+            "vendor/npm-asset/js-cookie/src": "web/libraries/js-cookie"
+        }
+    },
+    "scripts": {
+        "pre-update-cmd": [
+            "DrupalComposerManaged\\ComposerScripts::preUpdate"
+        ]
+    },
+    "config": {
+        "preferred-install": "dist",
+        "sort-packages": true,
+        "platform": {
+            "php": "8.1"
+        },
+        "allow-plugins": {
+            "composer/installers": true,
+            "cweagans/composer-patches": true,
+            "drupal/core-composer-scaffold": true,
+            "drupal/core-project-message": true,
+            "dealerdirect/phpcodesniffer-composer-installer": true,
+            "phpstan/extension-installer": true,
+            "lullabot/drainpipe": true,
+            "lullabot/drainpipe-dev": true,
+            "php-http/discovery": true
+        }
+    },
+    "replace": {
+        "drupal/ckeditor": "self.version"
+    }
+}

@@ -1,0 +1,28 @@
+<?php
+
+/**
+ * @file
+ * Primary module hooks for my_updater module.
+ */
+
+/**
+ * Implements hook_entity_field_storage_info_alter().
+ */
+function my_updater_entity_field_storage_info_alter(&$fields, \Drupal\Core\Entity\EntityTypeInterface $entity_type): array {
+  $fields = [];
+
+  if ($entity_type->id() === 'group_content') {
+    $fields['entity_id'] = [
+      'field_name' => 'entity_id',
+      'entity_type' => 'group_content',
+      'type' => 'integer',
+      'settings' => [
+        'unsigned' => TRUE,
+      ],
+      'indexes' => [
+        'id' => ['id'],
+      ],
+    ];
+  }
+  return $fields;
+}

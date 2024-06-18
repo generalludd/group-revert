@@ -1,0 +1,179 @@
+<?php
+
+use Drupal\Core\Field\BaseFieldDefinition;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
+
+/**
+ * Implements hook_update_N().
+ *
+ * build a temporary table for the entity_id field
+ */
+function my_updater_update_9001(&$sandbox): void {
+  $entity_id_field_exists = \Drupal::database()
+    ->schema()
+    ->fieldExists('group_content__entity_id', 'entity_id_target_id');
+  if ($entity_id_field_exists) {
+    $query = \Drupal::database()
+      ->select('group_content__entity_id', 'g')
+      ->fields('g', ['entity_id', 'entity_id_target_id'])
+      ->groupBy('entity_id');
+
+    // Initialize the update process, create a temporary table.
+    if (!isset($sandbox['total'])) {
+      $sandbox['total'] = $query->countQuery()->execute()->fetchField();
+      $sandbox['current'] = 0;
+
+      \Drupal::database()
+        ->schema()
+        ->createTable('group_content_entity_id_revert', [
+          'fields' => [
+            'entity_id' => [
+              'type' => 'int',
+              'unsigned' => TRUE,
+              'not null' => TRUE,
+            ],
+            'entity_id_target_id' => [
+              'type' => 'int',
+              'unsigned' => TRUE,
+              'not null' => TRUE,
+            ],
+          ],
+          'primary key' => [
+            'entity_id',
+          ],
+          'description' => 'Temporary storage for group_content entity_id field migration',
+        ]);
+    }
+
+    // We're doing one SELECT and one INSERT, so 500 rows at once should be fine.
+    $rows_per_operation = 500;
+    $query->condition('entity_id', $sandbox['current'], '>');
+    $query->range(0, $rows_per_operation);
+    $query->orderBy('entity_id', 'ASC');
+
+    // We're not doing INSERT ... SELECT since I'm not sure how it would perform
+    // on highly loaded databases with much data. One such big query could even
+    // lock a database for a long time.
+    // Core is using the same approach essentially.
+    // @see taxonomy_update_8502()
+    $rows = $query->execute()->fetchAll(PDO::FETCH_ASSOC);
+    if ($rows) {
+      $insert = \Drupal::database()
+        ->insert('group_content_entity_id_revert')
+        ->fields(['entity_id', 'entity_id_target_id']);
+
+      foreach ($rows as $row) {
+        $insert->values($row);
+        $sandbox['current'] = $row['entity_id'];
+      }
+
+      $insert->execute();
+      $temp_count = \Drupal::database()
+        ->select('group_content_entity_id_revert')
+        ->countQuery()->execute()->fetchField();
+      $sandbox['#finished'] = ($temp_count / $sandbox['total']);
+    }
+    else {
+      $sandbox['#finished'] = 1;
+    }
+  }
+}
+
+/**
+ * Implements hook_update_N().
+ *
+ * Delete the entity_content__entity_id_str field definition and table.
+ */
+function my_updater_update_9002(): void {
+  $entity_id_field_exists = \Drupal::database()->schema()->fieldExists('group_content__entity_id_str', 'entity_id_target_id');
+  /** @var \Drupal\Core\Entity\EntityDefinitionUpdateManager $entity_definition_manager */
+  $entity_definition_manager = \Drupal::service('entity.definition_update_manager');
+  if ($entity_id_field_exists) {
+    /** @var \Drupal\Core\Entity\ $field */
+    $field_storage_definition = $entity_definition_manager->getFieldStorageDefinition('entity_id_str', 'group_content');
+    if (!empty($field_storage_definition)) {
+      $entity_definition_manager->uninstallFieldStorageDefinition($field_storage_definition);
+    }
+  }
+}
+
+/**
+ * Implements hook_update_N().
+ *
+ * Add the entity_id field to group_content_field_data table
+ */
+function my_updater_update_9003(): TranslatableMarkup {
+  $entity_id_field_exists = \Drupal::database()->schema()->fieldExists('group_content__entity_id', 'entity_id_target_id');
+  $definition_update_manager = \Drupal::entityDefinitionUpdateManager();
+  if ($entity_id_field_exists) {
+    /** @var \Drupal\Core\Entity\ $field */
+    $field_storage_definition = $definition_update_manager->getFieldStorageDefinition('entity_id', 'group_content');
+    if (!empty($field_storage_definition)) {
+      $definition_update_manager->uninstallFieldStorageDefinition($field_storage_definition);
+    }
+  }
+  $entity_type = $definition_update_manager->getEntityType('group_content');
+
+  // Add the 'published' entity key to the group entity type.
+  $entity_keys = $entity_type->getKeys();
+  $entity_keys['published'] = 'status';
+  $entity_type->set('entity_keys', $entity_keys);
+
+  $definition_update_manager->updateEntityType($entity_type);
+
+  // Add the status field.
+  $field_storage_definition = BaseFieldDefinition::create('entity_reference')
+    ->setLabel(t('Content'))
+    ->setDescription(t('The entity to add to the group.'))
+    ->setDisplayOptions('form', [
+      'type' => 'entity_reference_autocomplete',
+      'weight' => 5,
+      'settings' => [
+        'match_operator' => 'CONTAINS',
+        'size' => '60',
+        'placeholder' => '',
+      ],
+    ])
+    ->setDisplayConfigurable('view', TRUE)
+    ->setDisplayConfigurable('form', TRUE)
+    ->setRequired(TRUE);
+
+  $definition_update_manager->installFieldStorageDefinition('entity_id', 'group_content', 'group_content', $field_storage_definition);
+
+  return t('The published field has been added to groups.');
+}
+/**
+ * Implements hook_post_update_NAME().
+ *
+ * Restore the data for group_content entity_id.
+ */
+function my_updater_update_9004(&$sandbox): void {
+
+  if(!\Drupal::database()->schema()->fieldExists('group_content_field_data', 'entity_id')){
+    \Drupal::logger('bps_group_module_extensions')->error('Field entity_id does not exist in group_content_field_data.');
+    return;
+  }
+  $query = \Drupal::database()
+    ->select('group_content_entity_id_revert', 'g')
+    ->fields('g', ['entity_id', 'entity_id_target_id']);
+
+  $rows = $query->execute()->fetchAllAssoc('entity_id');
+  if ($rows) {
+    foreach ($rows as $entity_id => $row) {
+      if(empty($row->entity_id_target_id)){
+        continue;
+      }
+      \Drupal::database()
+        ->update('group_content_field_data')
+        ->fields(['entity_id' => $row->entity_id_target_id])
+        ->condition('id', $entity_id)
+        ->execute();
+    }
+    // Log the number of records updated.
+    \Drupal::logger('bps_group_module_extensions')->notice('@count records updated.', ['@count' => count($rows)]);
+
+  } else {
+    \Drupal::logger('bps_group_module_extensions')->notice('No records to update.');
+  }
+}
+
